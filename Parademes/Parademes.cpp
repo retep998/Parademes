@@ -9,6 +9,7 @@
 #include <fstream>
 #include <array>
 #include <vector>
+#include <random>
 using namespace std;
 
 bool fullscreen = false;
@@ -30,6 +31,8 @@ int sx = 0;
 int sy = 0;
 bool ldown = false;
 bool rdown = false;
+mt19937 engine;
+uniform_int_distribution<char16_t> dist(0, 0xFFFF);
 
 int main(int argc, char* argv[]) {
 	if (argc >= 2) if (string(argv[1]) == "editor") editor = true;
@@ -80,8 +83,8 @@ int main(int argc, char* argv[]) {
 		SDL_EnableUNICODE(true);
 		last = clock();
 	}
-	while (true) {
-		{//First lets obtain our events
+	while (true) {//The game loop
+		if (editor) {//Events for the editor
 			SDL_Event e;
 			while (SDL_PollEvent(&e)) {
 				switch(e.type) {
@@ -146,7 +149,7 @@ int main(int argc, char* argv[]) {
 							offset = max(0, offset-16);
 							break;
 						case SDL_BUTTON_WHEELDOWN:
-							offset = min(0x10000/32-16, offset+16);
+							offset = min(0x10000/32-64, offset+16);
 							break;
 						}
 						break;
@@ -182,24 +185,44 @@ int main(int argc, char* argv[]) {
 					}
 				}
 			}
-		}
-		{//Display the final result
-			if (editor) SDL_FillRect(window, nullptr, SDL_MapRGB(window->format, 0, 31, 0));
-			else SDL_FillRect(window, nullptr, 0);
-			//transform(text.begin(), text.end(), text.begin(), [](array<char16_t, ch> text)->array<char16_t, ch>{transform(text.begin(), text.end(), text.begin(), [](char16_t)->char16_t{return rand();}); return text;});
-			for (int y = 0; y < ch; ++y) {
-				for (int x = 0; x < cw; ++x) {
-					char16_t c = text[x][y];
-					SDL_Rect srect = {(int16_t)((c&0xFF)<<1), (int16_t)((c&0xFF00)>>4), 8, 16};
-					SDL_Rect drect = {(int16_t)(x*8), (int16_t)(y*16), 8, 16};
-					if (charfw[c] && x+1 != cw) {
-						srect.w = 16;
-						drect.w = 16;
+		} else {
+			SDL_Event e;
+			while (SDL_PollEvent(&e)) {
+				switch(e.type) {
+				case SDL_QUIT:
+					SDL_Quit();
+					exit(0);
+				case SDL_KEYDOWN:
+					if (e.key.keysym.sym == SDLK_RETURN) {
+						if (e.key.keysym.mod & KMOD_ALT) {
+							if (!editor) {
+								fullscreen = !fullscreen;
+								if (fullscreen) window = SDL_SetVideoMode(width, height, 8, SDL_SWSURFACE|SDL_FULLSCREEN);
+								else window = SDL_SetVideoMode(width, height, 8, SDL_SWSURFACE);
+								SDL_SetPalette(window, SDL_LOGPAL|SDL_PHYSPAL, colors, 0, 2);
+							}
+						} else {
+							//Parse command
+						}
+					} else if (e.key.keysym.sym == SDLK_BACKSPACE) {
+						if (!etext.empty())	etext.erase(etext.end()-1);
+					} else if (e.key.keysym.sym == SDLK_F4 && e.key.keysym.mod & KMOD_ALT) {
+						SDL_Quit();
+						exit(0);
+						break;
+					} else if (e.key.keysym.sym == SDLK_ESCAPE) {
+						SDL_Quit();
+						exit(0);
+					} else if (e.key.keysym.unicode) {
+						etext.push_back(e.key.keysym.unicode);
 					}
-					if (c) SDL_BlitSurface(font, &srect, window, &drect);
+					break;
 				}
 			}
+		}
+		{//Display the final result
 			if (editor){
+				SDL_FillRect(window, nullptr, SDL_MapRGB(window->format, 0, 31, 0));
 				{
 					SDL_Rect r = {0, 768, 1024, 2};
 					SDL_FillRect(window, &r, SDL_MapRGB(window->format, 0, 255, 0));
@@ -228,6 +251,21 @@ int main(int argc, char* argv[]) {
 					SDL_Rect r = {sx*16, 770+sy*16, 16, 16};
 					SDL_FillRect(window, &r, SDL_MapRGB(window->format, 0, 200, 0));
 				}
+			} else {
+				SDL_FillRect(window, nullptr, 0);
+				transform(text.begin(), text.end(), text.begin(), [](array<char16_t, ch> text)->array<char16_t, ch>{transform(text.begin(), text.end(), text.begin(), [](char16_t)->char16_t{return dist(engine);}); return text;});
+			}
+			for (int y = 0; y < ch; ++y) {
+				for (int x = 0; x < cw; ++x) {
+					char16_t c = text[x][y];
+					SDL_Rect srect = {(int16_t)((c&0xFF)<<1), (int16_t)((c&0xFF00)>>4), 8, 16};
+					SDL_Rect drect = {(int16_t)(x*8), (int16_t)(y*16), 8, 16};
+					if (charfw[c] && x+1 != cw) {
+						srect.w = 16;
+						drect.w = 16;
+					}
+					if (c) SDL_BlitSurface(font, &srect, window, &drect);
+				}
 			}
 			SDL_Flip(window);
 		}
@@ -236,6 +274,7 @@ int main(int argc, char* argv[]) {
 			SDL_WM_SetCaption(to_string((long long)fps).c_str(), "Land of Parademes");
 			fps = 0.9*fps + 0.1*(double)CLOCKS_PER_SEC/max(1, (int)(next-last));
 			last = next;
+			SDL_Delay(1);
 		}
 	}
 }
