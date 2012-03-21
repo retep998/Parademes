@@ -1,0 +1,9 @@
+ipch
+Debug
+Release
+*.sdf
+*.opensdf
+*.dll
+*.suo
+palette
+esave

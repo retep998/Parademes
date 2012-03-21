@@ -34,18 +34,55 @@ bool ldown = false;
 bool rdown = false;
 mt19937 engine;
 uniform_int_distribution<char16_t> dist(0, 0xFFFF);
+char bom[2] = {0xff, 0xfe};
+char nl[4] = {0x0d, 0x00, 0x0a, 0x00};
 
 void save() {
 	if (editor) {
-
+		ofstream pfile("palette", ios::binary);
+		pfile.write(bom, 2);
+		for (int y = 0; y < 16; ++y) {
+			for (int x = 0; x < 64; ++x) {
+				pfile << *(char*)&palette[x][y];
+				pfile << *((char*)&palette[x][y]+1);
+			}
+			pfile.write(nl, 4);
+		}
+		ofstream sfile("esave", ios::binary);
+		sfile.write(bom, 2);
+		for (int y = 0; y < ch; ++y) {
+			for (int x = 0; x < cw; ++x) {
+				sfile << *(char*)&text[x][y];
+				sfile << *((char*)&text[x][y]+1);
+			}
+			sfile.write(nl, 4);
+		}
 	} else {
-
+		
 	}
 }
 
 void load() {
 	if (editor) {
-
+		ifstream pfile("palette");
+		pfile.ignore(2);
+		for (int y = 0; y < 16; ++y) {
+			for (int x = 0; x < 64; ++x) {
+				pfile >> *(char*)&palette[x][y];
+				pfile >> *((char*)&palette[x][y]+1);
+			}
+			pfile.ignore(4);
+		}
+		ifstream sfile("esave");
+		sfile.ignore(2);
+		for (int y = 0; y < ch; ++y) {
+			for (int x = 0; x < cw; ++x) {
+				sfile >> *(char*)&text[x][y];
+				sfile >> *((char*)&text[x][y]+1);
+			}
+			sfile.ignore(4);
+		}
+		selected = palette[sx][sy];
 	} else {
 
 	}
@@ -275,6 +312,10 @@ int main(int argc, char* argv[]) {
 			SDL_WM_SetCaption(to_string((long long)fps).c_str(), "Land of Parademes");
 			fps = 0.9*fps + 0.1*(double)CLOCKS_PER_SEC/max(1, (int)(next-last));
 			last = next;
+			if ((last-lsave)/CLOCKS_PER_SEC > 60) {
+				save();
+				lsave = last;
+			}
 			SDL_Delay(1);
 		}
 	}
