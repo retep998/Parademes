@@ -20,6 +20,7 @@ bitset<0x10000> charfw;
 SDL_Color colors[2] = {{0, 0, 0, 255}, {0, 255, 0, 255}};
 SDL_Surface* window;
 clock_t last;
+clock_t lsave;
 array<array<char16_t, ch>, cw> text;
 u16string etext;
 double fps = 0;
@@ -34,8 +35,31 @@ bool rdown = false;
 mt19937 engine;
 uniform_int_distribution<char16_t> dist(0, 0xFFFF);
 
+void save() {
+	if (editor) {
+
+	} else {
+
+	}
+}
+
+void load() {
+	if (editor) {
+
+	} else {
+
+	}
+}
+
+void quit() {
+	save();
+	SDL_Quit();
+	exit(0);
+}
+
 int main(int argc, char* argv[]) {
 	if (argc >= 2) if (string(argv[1]) == "editor") editor = true;
+	load();
 	{//Font stuff
 		font = SDL_CreateRGBSurface(SDL_SWSURFACE, 0x1000, 0x1000, 1, 0, 0, 0, 0);
 		ifstream fontf("unifont.hex");
@@ -82,6 +106,7 @@ int main(int argc, char* argv[]) {
 		SDL_SetColors(font, colors, 0, 2);
 		SDL_EnableUNICODE(true);
 		last = clock();
+		lsave = last;
 	}
 	while (true) {//The game loop
 		if (editor) {//Events for the editor
@@ -89,36 +114,20 @@ int main(int argc, char* argv[]) {
 			while (SDL_PollEvent(&e)) {
 				switch(e.type) {
 				case SDL_QUIT:
-					SDL_Quit();
-					exit(0);
+					quit();
 				case SDL_KEYDOWN:
-					if (e.key.keysym.sym == SDLK_RETURN) {
-						if (e.key.keysym.mod & KMOD_ALT) {
-							if (!editor) {
-								fullscreen = !fullscreen;
-								if (fullscreen) window = SDL_SetVideoMode(width, height, 8, SDL_SWSURFACE|SDL_FULLSCREEN);
-								else window = SDL_SetVideoMode(width, height, 8, SDL_SWSURFACE);
-								SDL_SetPalette(window, SDL_LOGPAL|SDL_PHYSPAL, colors, 0, 2);
-							}
-						} else {
-							//Parse command
-						}
-					} else if (e.key.keysym.sym == SDLK_BACKSPACE) {
-						if (!etext.empty())	etext.erase(etext.end()-1);
+					if (e.key.keysym.sym == SDLK_s) {
+						save();
+					} else if (e.key.keysym.sym == SDLK_l) {
+						load();
 					} else if (e.key.keysym.sym == SDLK_F4 && e.key.keysym.mod & KMOD_ALT) {
-						SDL_Quit();
-						exit(0);
-						break;
+						quit();
 					} else if (e.key.keysym.sym == SDLK_ESCAPE) {
-						SDL_Quit();
-						exit(0);
-					} else if (e.key.keysym.unicode) {
-						etext.push_back(e.key.keysym.unicode);
+						quit();
 					}
 					break;
 				case SDL_MOUSEBUTTONDOWN:
-					if (!editor) break;
-						{
+					{
 						int x = e.button.x;
 						int y = e.button.y;
 						switch (e.button.button) {
@@ -152,10 +161,9 @@ int main(int argc, char* argv[]) {
 							offset = min(0x10000/32-64, offset+16);
 							break;
 						}
-						break;
 					}
+					break;
 				case SDL_MOUSEBUTTONUP:
-					if (!editor) break;
 					{
 						switch (e.button.button) {
 						case SDL_BUTTON_LEFT:
@@ -166,8 +174,8 @@ int main(int argc, char* argv[]) {
 							break;
 						}
 					}
+					break;
 				case SDL_MOUSEMOTION:
-					if (!editor) break;
 					{
 						int x = e.button.x;
 						int y = e.button.y;
@@ -183,6 +191,7 @@ int main(int argc, char* argv[]) {
 						}
 						break;
 					}
+					break;
 				}
 			}
 		} else {
@@ -190,8 +199,7 @@ int main(int argc, char* argv[]) {
 			while (SDL_PollEvent(&e)) {
 				switch(e.type) {
 				case SDL_QUIT:
-					SDL_Quit();
-					exit(0);
+					quit();
 				case SDL_KEYDOWN:
 					if (e.key.keysym.sym == SDLK_RETURN) {
 						if (e.key.keysym.mod & KMOD_ALT) {
@@ -207,12 +215,9 @@ int main(int argc, char* argv[]) {
 					} else if (e.key.keysym.sym == SDLK_BACKSPACE) {
 						if (!etext.empty())	etext.erase(etext.end()-1);
 					} else if (e.key.keysym.sym == SDLK_F4 && e.key.keysym.mod & KMOD_ALT) {
-						SDL_Quit();
-						exit(0);
-						break;
+						quit();
 					} else if (e.key.keysym.sym == SDLK_ESCAPE) {
-						SDL_Quit();
-						exit(0);
+						quit();
 					} else if (e.key.keysym.unicode) {
 						etext.push_back(e.key.keysym.unicode);
 					}
@@ -223,10 +228,10 @@ int main(int argc, char* argv[]) {
 		{//Display the final result
 			if (editor){
 				SDL_FillRect(window, nullptr, SDL_MapRGB(window->format, 0, 31, 0));
-				{
-					SDL_Rect r = {0, 768, 1024, 2};
-					SDL_FillRect(window, &r, SDL_MapRGB(window->format, 0, 255, 0));
-				}
+				SDL_Rect r1 = {0, 768, 1024, 2};
+				SDL_FillRect(window, &r1, SDL_MapRGB(window->format, 0, 255, 0));
+				SDL_Rect r2 = {1024, 0, 2, 1538};
+				SDL_FillRect(window, &r2, SDL_MapRGB(window->format, 0, 255, 0));
 				for (int y = 0; y < 64; ++y) {
 					for (int x = 0; x < 32; ++x) {
 						char16_t c = x+(y+offset)*32;
@@ -234,10 +239,6 @@ int main(int argc, char* argv[]) {
 						SDL_Rect drect = {(int16_t)(x*16+1026), (int16_t)(y*16), 16, 16};
 						SDL_BlitSurface(font, &srect, window, &drect);
 					}
-				}
-				{
-					SDL_Rect r = {1024, 0, 2, 1538};
-					SDL_FillRect(window, &r, SDL_MapRGB(window->format, 0, 255, 0));
 				}
 				for (int y = 0; y < 16; ++y) {
 					for (int x = 0; x < 64; ++x) {
